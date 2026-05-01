@@ -19,19 +19,19 @@ export function ActivityFeed({
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="scrollbar-thin max-h-[420px] space-y-3 overflow-y-auto pr-2">
+        <div className="space-y-2">
           {items.map((item, index) => (
             <div
               key={item.id}
-              className="animate-rise rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3"
+              className="animate-rise rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2"
               style={{ animationDelay: `${index * 45}ms` }}
             >
-              <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="mb-1 flex items-center justify-between gap-2">
                 <div className="text-sm font-medium">{item.actorName}</div>
                 <Badge variant="info">{item.type.replaceAll("_", " ")}</Badge>
               </div>
-              <p className="text-sm text-[var(--text-secondary)]">{item.description}</p>
-              <p className="mt-2 text-xs text-[var(--text-secondary)]">{formatDateTime(item.timestamp)}</p>
+              <p className="text-xs text-[var(--text-secondary)]">{item.description}</p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">{formatDateTime(item.timestamp)}</p>
             </div>
           ))}
         </div>

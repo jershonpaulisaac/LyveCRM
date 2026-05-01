@@ -1,30 +1,54 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, LockKeyhole, Sparkles } from "lucide-react";
+import { Eye, EyeOff, Mail, Shield, Building2, Users, Lock } from "lucide-react";
 import { useCRM } from "@/components/providers/crm-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Select } from "@/components/ui/select";
 import { getRouteForRole } from "@/lib/auth";
+import { motion } from "framer-motion";
+
+type SelectedRole = "platform_owner" | "company_admin" | "user" | "";
 
 export default function LoginPage() {
   const router = useRouter();
   const { login, session, ready, db } = useCRM();
-  const accounts = useMemo(
-    () =>
-      db.users.map((user) => ({
-        id: user.id,
-        email: user.email,
-        roleLabel: user.role.replaceAll("_", " "),
-        name: user.name,
-      })),
-    [db.users],
-  );
+
+  const [selectedRole, setSelectedRole] = useState<SelectedRole>("");
+  const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const selectedEmail = accounts.some((account) => account.email === email) ? email : (accounts[0]?.email ?? "");
+
+  const companies = useMemo(() => db.companies, [db.companies]);
+
+  const filteredUsers = useMemo(() => {
+    if (!selectedRole) return [];
+    if (selectedRole === "platform_owner") {
+      return db.users.filter((u) => u.role === "platform_owner");
+    }
+    if (selectedCompanyId) {
+      return db.users.filter(
+        (u) => u.companyId === selectedCompanyId && u.role === selectedRole
+      );
+    }
+    return [];
+  }, [db.users, selectedRole, selectedCompanyId]);
+
+  useEffect(() => {
+    setSelectedCompanyId("");
+    setEmail("");
+  }, [selectedRole]);
+
+  useEffect(() => {
+    setEmail("");
+  }, [selectedCompanyId]);
 
   useEffect(() => {
     if (ready && session) {
@@ -32,78 +56,151 @@ export default function LoginPage() {
     }
   }, [ready, router, session]);
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    if (loading) return;
+    setError("");
+
+    if (password !== "12345") {
+      setError("Invalid password. Use 12345 for demo access.");
+      return;
+    }
+
+    setLoading(true);
     try {
-      const nextSession = login(selectedEmail);
-      router.replace(getRouteForRole(nextSession.role));
+      login(email, rememberMe);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to sign in.");
+      setLoading(false);
     }
   };
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(146,213,230,0.22),transparent_30%),linear-gradient(180deg,#ffffff_0%,#f6fbfc_45%,#ffffff_100%)]" />
-      <div className="surface-grid absolute inset-0 opacity-60" />
-
-      <div className="pointer-events-none absolute left-1/2 top-18 h-24 w-24 -translate-x-[230px] rounded-[28px] border border-[var(--border)] bg-white/70 shadow-[var(--shadow-soft)] animate-[floatY_6s_ease-in-out_infinite]" />
-      <div className="pointer-events-none absolute left-1/2 top-28 h-16 w-16 translate-x-[220px] rounded-[22px] border border-[var(--border)] bg-[var(--accent)]/20 animate-[floatY_5s_ease-in-out_infinite_0.6s]" />
-      <div className="pointer-events-none absolute bottom-20 left-1/2 h-20 w-20 -translate-x-[280px] rounded-[26px] border border-[var(--border)] bg-white/75 animate-[floatY_7s_ease-in-out_infinite_0.3s]" />
-
-      <div className="relative z-10 flex w-full max-w-xl flex-col items-center">
-        <div className="animate-rise mb-6 inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-white/88 px-4 py-2 text-sm text-[var(--text-secondary)] shadow-sm backdrop-blur">
-          <Sparkles className="h-4 w-4 text-[var(--accent-strong)]" />
-          Multi-tenant CRM SaaS demo workspace
+    <main className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-white via-[#f8fafc] to-[#f1f5f9] px-4 py-6">
+      <div className="relative z-10 w-full max-w-lg">
+        <Card className="rounded-[2rem] border border-slate-200 bg-white shadow-2xl overflow-hidden">
+          <CardContent className="p-8">
+          <div className="mx-auto mb-6 flex flex-col items-center gap-2">
+          {/* Handshake Logo - Maintaining 2:1 ratio at a larger size for the login page */}
+          <img src="/logo2.png" alt="LyveCRM" className="h-20 w-auto object-contain" />
+  
+          <p className="text-[#475569] mt-2 font-medium">
+            Sign in to your isolated workspace
+          </p>
         </div>
 
-        <Card className="animate-fade-in w-full rounded-[30px] border-white/80 bg-white/90 shadow-[0_24px_80px_rgba(34,34,59,0.14)] backdrop-blur">
-          <CardContent className="p-8 md:p-10">
-            <div className="mb-8 text-center">
-              <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-3xl bg-[var(--text-primary)] text-white shadow-lg transition duration-300 hover:-translate-y-0.5">
-                <LockKeyhole className="h-6 w-6" />
+            <form className="space-y-5" onSubmit={handleSubmit}>
+              
+              {/* --- STEP 1: ROLE (Always Enabled) --- */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 ml-1">Identity</label>
+                <div className="relative">
+                  <Shield className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <select
+                    className="w-full rounded-xl border border-slate-200 py-3.5 pl-11 pr-4 outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50 transition-all"
+                    value={selectedRole}
+                    onChange={(e) => setSelectedRole(e.target.value as SelectedRole)}
+                    required
+                  >
+                    <option value="">Select your role</option>
+                    <option value="platform_owner">Platform Owner</option>
+                    <option value="company_admin">Company Admin</option>
+                    <option value="user">Regular User</option>
+                  </select>
+                </div>
               </div>
-              <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Sign in to LyveCRM</h1>
-              <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-[var(--text-secondary)]">
-                Pick a demo account from the dropdown and jump into the platform owner, company admin, or employee workspace.
-              </p>
-            </div>
 
-            <form className="space-y-6" onSubmit={handleSubmit}>
-              <label className="block space-y-2">
-                <span className="text-sm font-medium text-[var(--text-primary)]">Demo account</span>
-                <Select value={selectedEmail} onChange={(event) => setEmail(event.target.value)} className="h-12 rounded-2xl">
-                  {accounts.map((account) => (
-                    <option key={account.id} value={account.email}>
-                      {account.name} - {account.email}
-                    </option>
-                  ))}
-                </Select>
-              </label>
+              {/* --- STEP 2: COMPANY (Disabled if no Role) --- */}
+              <div className={selectedRole === "platform_owner" ? "hidden" : "space-y-2"}>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 ml-1">Organization</label>
+                <div className="relative">
+                  <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <select
+                    disabled={!selectedRole}
+                    className="w-full rounded-xl border border-slate-200 py-3.5 pl-11 pr-4 outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    value={selectedCompanyId}
+                    onChange={(e) => setSelectedCompanyId(e.target.value)}
+                    required={selectedRole !== "platform_owner"}
+                  >
+                    <option value="">Select Company</option>
+                    {companies.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-              {error ? <p className="text-sm text-[#b42318]">{error}</p> : null}
+              {/* --- STEP 3: ACCOUNT (Disabled if no Role/Company) --- */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 ml-1">Account</label>
+                <div className="relative">
+                  <Users className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <select
+                    disabled={!selectedRole || (selectedRole !== "platform_owner" && !selectedCompanyId)}
+                    className="w-full rounded-xl border border-slate-200 py-3.5 pl-11 pr-4 outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  >
+                    <option value="">Select User ID</option>
+                    {filteredUsers.map((u) => (
+                      <option key={u.id} value={u.email}>{u.name} ({u.email})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-              <Button type="submit" className="h-12 w-full justify-center rounded-2xl text-sm font-semibold">
-                Continue to workspace
-                <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+              {/* --- STEP 4: PASSWORD (Disabled if no Email) --- */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 ml-1">Security</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    disabled={!email}
+                    type={showPassword ? "text" : "password"}
+                    className="w-full rounded-xl border border-slate-200 py-3.5 pl-11 pr-12 outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={email ? "Enter demo password" : "Select account first"}
+                    required
+                  />
+                  <button
+                    disabled={!email}
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-indigo-600 disabled:hidden"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {error && <p className="text-sm text-red-500 font-semibold bg-red-50 p-3 rounded-lg border border-red-100">{error}</p>}
+
+              <Button
+                type="submit"
+                disabled={!email || !password || loading}
+                className="w-full h-14 bg-[#22223B] text-white rounded-2xl hover:bg-[#1a1a2e] text-lg font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
+              >
+                {loading ? "Authenticating..." : "Sign In to Dashboard"}
               </Button>
             </form>
           </CardContent>
         </Card>
       </div>
-
-      <style jsx>{`
-        @keyframes floatY {
-          0%,
-          100% {
-            transform: translateY(0);
-          }
-
-          50% {
-            transform: translateY(-12px);
-          }
-        }
-      `}</style>
+      <motion.button
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      whileHover={{ x: -4 }}
+      onClick={() => router.push("/")}
+      className="absolute left-8 top-8 flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-slate-900"
+    >
+      <div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-all hover:bg-slate-50">
+        <ArrowLeft className="h-4 w-4" />
+      </div>
+      <span className="antialiased tracking-tight">Back to home</span>
+    </motion.button>
     </main>
+    
   );
 }
