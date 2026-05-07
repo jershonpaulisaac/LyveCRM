@@ -337,6 +337,26 @@ export function addCompanyUser(db: MockDb, session: SessionUser, input: UserInpu
   return user;
 }
 
+export function deleteUser(db: MockDb, session: SessionUser, userId: string) {
+  const userIndex = db.users.findIndex((entry) => entry.id === userId);
+  if (userIndex === -1) throw new Error("User not found.");
+
+  const user = db.users[userIndex];
+  ensureCompanyScope(session, user.companyId);
+  if (session.role !== "company_admin") throw new Error("Only company admins can delete users.");
+  if (user.role === "company_admin") throw new Error("Company admins cannot be deleted from team access.");
+
+  db.users.splice(userIndex, 1);
+  db.tasks = db.tasks.filter((task) => task.assignedUserId !== user.id);
+  pushActivity(db, {
+    companyId: user.companyId,
+    userId: session.id,
+    actorName: session.name,
+    type: "user_deleted" as any,
+    description: `Deleted user ${user.name}.`,
+  });
+}
+
 export function simulateRealtimeUpdate(db: MockDb) {
   const activeCompanies = db.companies.filter((company) => company.status === "active");
   const company = activeCompanies[Math.floor(Math.random() * activeCompanies.length)];

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, Plus, ShieldCheck, UserRound } from "lucide-react";
+import { Mail, Plus, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { User } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,10 +13,12 @@ export function UserTable({
   users,
   canManage,
   onCreate,
+  onDelete,
 }: {
   users: User[];
   canManage: boolean;
   onCreate: (value: { name: string; email: string; title: string }) => void;
+  onDelete?: (userId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -36,17 +38,22 @@ export function UserTable({
           ) : null}
         </CardHeader>
         <CardContent className="overflow-x-auto pt-0">
-          <Table>
+          <div className="max-h-[350px] overflow-y-auto">
+            <Table>
             <TableHead>
               <TableRow>
                 <TableHeaderCell>Name</TableHeaderCell>
                 <TableHeaderCell>Role</TableHeaderCell>
                 <TableHeaderCell>Title</TableHeaderCell>
                 <TableHeaderCell>Email</TableHeaderCell>
+                {canManage && <TableHeaderCell>Action</TableHeaderCell>}
               </TableRow>
             </TableHead>
             <TableBody>
-              {users.map((user) => (
+              {users.map((user) => {
+                const canDeleteUser = user.role !== "company_admin";
+
+                return (
                 <TableRow key={user.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -74,10 +81,25 @@ export function UserTable({
                       {user.email}
                     </span>
                   </TableCell>
+                  {canManage && (
+                    <TableCell>
+                      {canDeleteUser ? (
+                        <button
+                          onClick={() => onDelete?.(user.id)}
+                          className="inline-flex items-center gap-2 text-red-600 hover:text-red-700 transition-colors"
+                          title="Delete user"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                    </TableCell>
+                  )}
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
       <UserDialog

@@ -13,6 +13,7 @@ import {
   addTask,
   createSeedDb,
   deleteCustomer,
+  deleteUser,
   simulateRealtimeUpdate,
   updateCustomer,
   updateTaskStatus,
@@ -26,7 +27,7 @@ interface CRMContextValue {
   db: MockDb;
   session: SessionUser | null;
   ready: boolean;
-  login: (email: string) => SessionUser;
+  login: (email: string, remember?: boolean) => SessionUser;
   logout: () => void;
   scoped: ReturnType<typeof getScopedSnapshot> | null;
   createCustomer: (input: CustomerInput) => void;
@@ -35,6 +36,7 @@ interface CRMContextValue {
   createTask: (input: TaskInput) => void;
   changeTaskStatus: (taskId: string, status: TaskStatus) => void;
   createUser: (input: UserInput) => void;
+  removeUser: (userId: string) => void;
   resetDemo: () => void;
 }
 
@@ -72,7 +74,7 @@ function getDbRawSnapshot() {
 
 function getSessionRawSnapshot() {
   if (typeof window === "undefined") return SERVER_SESSION_RAW;
-  return window.localStorage.getItem(SESSION_KEY) ?? SERVER_SESSION_RAW;
+  return window.localStorage.getItem(SESSION_KEY) ?? window.sessionStorage.getItem(SESSION_KEY) ?? SERVER_SESSION_RAW;
 }
 
 function subscribeDb(callback: () => void) {
@@ -115,7 +117,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
     db,
     session,
     ready,
-    login: (email) => {
+    login: (email, remember = true) => {
       const user = db.users.find((entry) => entry.email.toLowerCase() === email.trim().toLowerCase());
       if (!user) {
         throw new Error("No demo account matches that email.");
@@ -129,7 +131,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
         email: user.email,
       };
 
-      storeSession(nextSession);
+      storeSession(nextSession, remember);
       emitDataChanged();
       return nextSession;
     },
@@ -145,6 +147,7 @@ export function CRMProvider({ children }: { children: ReactNode }) {
     changeTaskStatus: (taskId, status) =>
       mutate((draft, activeSession) => void updateTaskStatus(draft, activeSession, taskId, status)),
     createUser: (input) => mutate((draft, activeSession) => void addCompanyUser(draft, activeSession, input)),
+    removeUser: (userId) => mutate((draft, activeSession) => void deleteUser(draft, activeSession, userId)),
     resetDemo: () => {
       const next = createSeedDb();
       if (typeof window !== "undefined") {
